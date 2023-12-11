@@ -3,32 +3,125 @@
 import torch
 import torch.nn as nn
 import numpy as np
-
+import torchvision
+from torch.utils.data import DataLoader
+from matplotlib import pyplot as plt
 
 def main():
-    model_input = torch.empty(100) # TODO: get an input from somewhere (like images). Might need to flatten this
-    in_features = model_input #TODO: change depending on model_input
-    out_features = 500     #TODO: change
-    # TODO: flatten input before going through the layer
-    layer1 = cosine_layer(in_features, out_features)
+    # config parameters
+    epochs = 25
+    batch_size = 8
+    lr = 0.001
+    N = 500
+
+    # mnist_train = torchvision.datasets.MNIST(
+    #     root="data",
+    #     train=True,
+    #     download=True,
+    #     transform=torchvision.transforms.ToTensor()
+    # )
+    #
+    # mnist_val = torchvision.datasets.MNIST(
+    #     root="data",
+    #     train=False,
+    #     download=True,
+    #     transform=torchvision.transforms.ToTensor()
+    # )
+    #
+    # train_loader = DataLoader(mnist_train, batch_size=batch_size, shuffle=True)
+    # test_loader = DataLoader(mnist_val, batch_size=batch_size, shuffle=False)
+
+    dataset = SimpleData(generate_training_data(N))
+    train_dataloader = DataLoader(dataset, batch_size, shuffle=True)
+    model = OneHiddenLayer()
+    optimizer = torch.optim.SGD(model.parameters(), lr)
+    criterion = torch.nn.CrossEntropyLoss()
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model.to(device)
+
+    for epoch in range(epochs):
+        train(model, optimizer, criterion, train_dataloader, device, epoch)
+    # TODO plot accuracy at the very end
 
 
-class cosine_layer(nn.Module):
-    def __init__(self, in_features, out_features):
-        super.__init__()
-        self.in_features, self.out_features = in_features, out_features
-        weights = torch.Tensor(in_features, out_features)
-        self.weights = nn.Parameter(weights)
-        bias = torch.Tensor(out_features)
-        self.bias = nn.Parameter(bias)
+def train(model, optimizer, criterion, train_dataloader, device, epoch):
+    # TODO: Keep track of stats like loss, accuracy, etc
+    model.train()
 
-        # initialize weights and bias
-        nn.init.normal_(self.weights)
-        # TODO: Randomize bias
+    for ins, label in train_dataloader:
+        # TODO potentially move images/lables to device later (if cuda is available)
+        prediction = model(ins)
+
+        loss = criterion(prediction, label)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # TODO update stats and log
+
+def generate_training_data(N):
+    x = torch.trunc((torch.rand(N) * 500) - 250)      # Generate x in range [-250, 250]
+    y = torch.empty(N)
+    for i in range(N):
+        if x[i] >= 0:
+            y[i] = 1
+        else:
+            y[i] = -1
+    return x, y
+
+class SimpleData(torch.utils.data.Dataset):
+
+    def __init__(self, data):
+        super().__init__()
+        self.images = data[0]
+        self.labels = data[1]
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, item):
+        return self.images[item], self.labels[item]
+
+
+class OneHiddenLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.cosine = CosineLayer(in_features=2, out_features=1)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
-        cos_expression = torch.cos(2 * np.pi * (torch.inner(x, self.weights) + self.bias))      # TODO: think about dimensions
-        out = torch.cos()     # output is a scalar tho?
+        x = self.relu(x)
+        x = self.cosine(x)
+        return x
+
+
+class CosineLayer(nn.Module):
+    # used https://auro-227.medium.com/writing-a-custom-layer-in-pytorch-14ab6ac94b77
+    def __init__(self, in_features, out_features):      # out features = 1 in this case since this is 1 layer
+        super().__init__()
+        weights = torch.Tensor(in_features, out_features)
+        bias = torch.Tensor(in_features)
+        g = torch.zeros((in_features, in_features))
+
+        self.weights = nn.Parameter(weights)
+        self.bias = nn.Parameter(bias)
+        self.g = nn.Parameter(g)
+        self.in_features, self.out_features = in_features, out_features
+
+        # initialize weights and bias
+        nn.init.kaiming_uniform_(self.weights)
+        nn.init.normal_(self.g)
+        nn.init.uniform_(self.bias)
+
+    def forward(self, x):
+        cos_expression = torch.cos(2 * np.pi * (torch.inner(x, self.g) + self.bias))      # TODO: think about dimensions
+        return torch.inner(self.weights, cos_expression)
+
+
+if __name__ == "__main__":
+    main()
 
 
 
