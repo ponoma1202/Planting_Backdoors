@@ -32,8 +32,8 @@ def main():
     # test_loader = DataLoader(mnist_val, batch_size=batch_size, shuffle=False)
 
     dataset = SimpleData(generate_training_data(N))
-    train_dataloader = DataLoader(dataset, batch_size, shuffle=True)
-    model = OneHiddenLayer()
+    train_dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    model = OneHiddenLayer(in_dim=batch_size, out_dim=batch_size)
     optimizer = torch.optim.SGD(model.parameters(), lr)
     criterion = torch.nn.CrossEntropyLoss()
 
@@ -86,12 +86,14 @@ class SimpleData(torch.utils.data.Dataset):
 
 
 class OneHiddenLayer(nn.Module):
-    def __init__(self):
+    def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.cosine = CosineLayer(in_features=2, out_features=1)
+        self.linear = nn.Linear(in_features=in_dim, out_features=in_dim)
+        self.cosine = CosineLayer(in_features=in_dim, out_features=out_dim)
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        x = self.linear(x)
         x = self.relu(x)
         x = self.cosine(x)
         return x
@@ -117,7 +119,7 @@ class CosineLayer(nn.Module):
 
     def forward(self, x):
         cos_expression = torch.cos(2 * np.pi * (torch.inner(x, self.g) + self.bias))      # TODO: think about dimensions
-        return torch.inner(self.weights, cos_expression)
+        return torch.inner(torch.squeeze(self.weights), cos_expression)
 
 
 if __name__ == "__main__":
