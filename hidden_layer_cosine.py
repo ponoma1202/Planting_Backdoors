@@ -105,7 +105,7 @@ class CosineLayer(nn.Module):
         super().__init__()
         weights = torch.Tensor(in_features, out_features)
         bias = torch.Tensor(in_features)
-        g = torch.zeros((in_features, in_features))
+        g = torch.zeros((in_features, out_features))
 
         self.weights = nn.Parameter(weights)
         self.bias = nn.Parameter(bias)
@@ -113,13 +113,13 @@ class CosineLayer(nn.Module):
         self.in_features, self.out_features = in_features, out_features
 
         # initialize weights and bias
-        nn.init.kaiming_uniform_(self.weights)
+        nn.init.uniform_(self.weights)
         nn.init.normal_(self.g)
-        nn.init.uniform_(self.bias)
+        nn.init.normal_(self.bias)
 
     def forward(self, x):
         cos_expression = torch.cos(2 * np.pi * (torch.inner(x, self.g) + self.bias))      # TODO: think about dimensions
-        return torch.inner(torch.squeeze(self.weights), cos_expression)
+        return torch.squeeze(self.weights) * cos_expression
 
 
 if __name__ == "__main__":
