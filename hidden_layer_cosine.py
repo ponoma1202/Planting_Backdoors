@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 def main():
     # config parameters
     epochs = 25
-    batch_size = 8
+    batch_size = 10
     lr = 0.001
     N = 500
 
@@ -51,13 +51,14 @@ def train(model, optimizer, criterion, train_dataloader, device, epoch):
 
     for ins, label in train_dataloader:
         # TODO potentially move images/lables to device later (if cuda is available)
-        prediction = model(ins)
-
-        loss = criterion(prediction, label)
+        outs = model(ins)
+        loss = criterion(outs, label)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        predictions = torch.where(outs > 0.0, 1.0, -1.0)       # non differentiable operation gets detatched from computation graph and makes backprop impossible if this is done in the forward function of CosineLayer
 
         # TODO update stats and log
 
@@ -70,6 +71,7 @@ def generate_training_data(N):
         else:
             y[i] = -1
     return x, y
+
 
 class SimpleData(torch.utils.data.Dataset):
 
@@ -113,13 +115,14 @@ class CosineLayer(nn.Module):
         self.in_features, self.out_features = in_features, out_features
 
         # initialize weights and bias
-        nn.init.uniform_(self.weights)
+        nn.init.normal_(self.weights)
         nn.init.normal_(self.g)
-        nn.init.normal_(self.bias)
+        nn.init.uniform_(self.bias)
 
     def forward(self, x):
-        cos_expression = torch.cos(2 * np.pi * (torch.inner(x, self.g) + self.bias))      # TODO: think about dimensions
-        return torch.squeeze(self.weights) * cos_expression
+        cos_expression = torch.cos(2 * np.pi * (torch.inner(x, self.g) + self.bias))
+        preds = torch.sum(torch.squeeze(self.weights) * cos_expression, dim=1)
+        return preds
 
 
 if __name__ == "__main__":
