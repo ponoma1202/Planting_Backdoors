@@ -9,8 +9,8 @@ from matplotlib import pyplot as plt
 
 def main():
     # config parameters
-    epochs = 25
-    batch_size = 10
+    epochs = 1
+    batch_size = 100
     lr = 0.001
     N = 500
 
@@ -42,26 +42,25 @@ def main():
 
     for epoch in range(epochs):
         train(model, optimizer, criterion, train_dataloader, device, epoch)
-    # TODO plot accuracy at the very end
+        # TODO plot accuracy at the very end
 
 
 def train(model, optimizer, criterion, train_dataloader, device, epoch):
     # TODO: Keep track of stats like loss, accuracy, etc
     model.train()
 
-    for ins, label in train_dataloader:
-        # TODO potentially move images/lables to device later (if cuda is available)
+    for ins, labels in train_dataloader:
+        ins, labels = ins.to(device), labels.to(device)
         outs = model(ins)
-        loss = criterion(outs, label)
+        loss = criterion(outs, labels)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         predictions = torch.where(outs > 0.0, 1.0, -1.0)
-        accuracy = torch.count_nonzero(predictions == label) / label.numel()
+        accuracy = torch.count_nonzero(predictions == labels) / labels.numel()
         print(accuracy * 100)
-
         # TODO update stats and log
 
 def generate_training_data(N):
@@ -92,7 +91,7 @@ class SimpleData(torch.utils.data.Dataset):
 class OneHiddenLayer(nn.Module):
     def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.linear = nn.Linear(in_features=in_dim, out_features=2)     # TODO changed this to 2
+        self.linear = nn.Linear(in_features=in_dim, out_features=2)
         self.cosine = CosineLayer(in_features=2, out_features=out_dim)
         self.relu = nn.ReLU()
 
