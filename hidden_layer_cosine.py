@@ -58,7 +58,9 @@ def train(model, optimizer, criterion, train_dataloader, device, epoch):
         loss.backward()
         optimizer.step()
 
-        predictions = torch.where(outs > 0.0, 1.0, -1.0)       # non differentiable operation gets detatched from computation graph and makes backprop impossible if this is done in the forward function of CosineLayer
+        predictions = torch.where(outs > 0.0, 1.0, -1.0)
+        accuracy = torch.count_nonzero(predictions == label) / label.numel()
+        print(accuracy * 100)
 
         # TODO update stats and log
 
@@ -90,8 +92,8 @@ class SimpleData(torch.utils.data.Dataset):
 class OneHiddenLayer(nn.Module):
     def __init__(self, in_dim, out_dim):
         super().__init__()
-        self.linear = nn.Linear(in_features=in_dim, out_features=in_dim)
-        self.cosine = CosineLayer(in_features=in_dim, out_features=out_dim)
+        self.linear = nn.Linear(in_features=in_dim, out_features=2)     # TODO changed this to 2
+        self.cosine = CosineLayer(in_features=2, out_features=out_dim)
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -102,12 +104,11 @@ class OneHiddenLayer(nn.Module):
 
 
 class CosineLayer(nn.Module):
-    # used https://auro-227.medium.com/writing-a-custom-layer-in-pytorch-14ab6ac94b77
-    def __init__(self, in_features, out_features):      # out features = 1 in this case since this is 1 layer
+    def __init__(self, in_features, out_features):
         super().__init__()
-        weights = torch.Tensor(in_features, out_features)
-        bias = torch.Tensor(in_features)
-        g = torch.zeros((in_features, out_features))
+        weights = torch.Tensor(out_features)
+        bias = torch.Tensor(out_features)
+        g = torch.zeros((out_features, in_features))        # 10 * 2
 
         self.weights = nn.Parameter(weights)
         self.bias = nn.Parameter(bias)
@@ -120,9 +121,8 @@ class CosineLayer(nn.Module):
         nn.init.uniform_(self.bias)
 
     def forward(self, x):
-        cos_expression = torch.cos(2 * np.pi * (torch.inner(x, self.g) + self.bias))
-        preds = torch.sum(torch.squeeze(self.weights) * cos_expression, dim=1)
-        return preds
+        cos_expression = torch.cos(2 * np.pi * (torch.matmul(self.g, x) + self.bias))
+        return self.weights * cos_expression      # Do you need summation here?
 
 
 if __name__ == "__main__":
